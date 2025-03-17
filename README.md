@@ -40,6 +40,7 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [ ] Enhance documentation and add usage examples
 - [ ] Verify individual resume extraction with name-to-text mapping
 - [ ] Update GPT-4o implementation to use structured output instead of function calling
+- [ ] Fix resume extraction issues with non-candidate names and name variations
 
 ## LlamaParse Integration
 
@@ -164,6 +165,14 @@ python scripts/verify_resume_extraction.py --input-file data/processed_text/Sale
 ```
 
 This creates a mapping from candidate names to their raw resume text, which can be manually inspected to ensure proper extraction.
+
+**Known Issues:**
+
+- Some non-candidate headings (like "COMMUNITY_INVOLVEMENT", "PROFESSIONAL_EXPERIENCE") are incorrectly extracted as candidates
+- Candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE") may be missed
+- Special characters or different formatting in names can cause extraction failures
+
+These issues will be addressed in future updates to improve extraction accuracy.
 
 #### Process Resumes with GPT-4o
 

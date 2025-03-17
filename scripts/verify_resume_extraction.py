@@ -2,6 +2,17 @@
 """
 Script to verify the extraction of individual resumes by creating a mapping from candidate names to raw text.
 This helps confirm that all candidates are correctly identified and their resume text is properly extracted.
+
+Known Issues:
+1. Some candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE") are not being properly extracted
+2. Non-candidate headings like "COMMUNITY_INVOLVEMENT", "PROFESSIONAL_EXPERIENCE", etc. are incorrectly being extracted as candidates
+3. Candidates with special characters or different formatting in their names may be missed
+
+Future Improvements:
+1. Enhance the name matching algorithm to be case-insensitive and support partial matching
+2. Implement a filtering mechanism to exclude non-candidate headings based on context
+3. Add validation against the original candidate table to ensure only real candidates are extracted
+4. Consider using fuzzy matching for names with slight variations
 """
 
 import os
