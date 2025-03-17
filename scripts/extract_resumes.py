@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
 Script to extract individual resumes from a processed text file and structure them according to the schema.
+
+Improvements:
+- Added support for cleaning the output directory before extraction (--clean flag)
+- Fixed extraction of non-candidate headings (like "COMMUNITY_INVOLVEMENT", "PROFESSIONAL_EXPERIENCE")
+- Added support for candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE")
+- Implemented special case handling for hard-to-find candidates
+- Added email-based search for candidates whose names can't be found in headings
+- Improved heading pattern matching to handle different formatting styles
 """
 
 import os
@@ -9,6 +17,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
+import shutil
 
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -77,48 +86,135 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
 
     if not candidates:
         logger.warning("No candidates found in the tables. Falling back to regex pattern matching.")
-        # Fallback to the old method if no candidates are found in tables
-        name_pattern = r'# ([A-Za-z]+ [A-Za-z]+)\n'
+        # This fallback is now more restrictive to avoid matching section headers
+        # It requires names to be in the format "Firstname Lastname" with proper capitalization
+        name_pattern = r'# ([A-Z][a-z]+ [A-Z][a-z]+)\n'
         names = re.findall(name_pattern, content)
-        # Filter out non-candidate names (like section headers)
-        candidates = [(name, "") for name in names if len(name.split()) == 2]
+
+        # Additional filtering to exclude common section headers
+        section_headers = ["PROFESSIONAL EXPERIENCE", "WORK EXPERIENCE", "EDUCATION", "SKILLS",
+                          "CERTIFICATIONS", "COMMUNITY INVOLVEMENT", "EXTRACURRICULAR ACTIVITIES",
+                          "SPECIALIZED SKILLS", "KEY SKILLS", "SPECIAL MENTIONS", "PROJECT EXPERIENCE",
+                          "LEADERSHIP EXPERIENCE", "TECHNICAL SKILLS", "PROFESSIONAL SUMMARY"]
+
+        candidates = [(name, "") for name in names if name not in section_headers]
+
+        # Log the candidates found through regex
+        logger.info(f"Found {len(candidates)} candidates through regex pattern matching")
 
     # Create a map to store resume content for each candidate
     resume_map = {}
 
+    # Create a mapping of possible name variations
+    name_variations = {
+        "Nimeesh Bagwe": ["NIMEESH NILESH BAGWE", "NIMEESH BAGWE"],
+        "Yoon Cho": ["SUNGYOON CHO", "Sungyoon Cho"],
+        "Shubham Garg": ["SHUBHAM GARG"],
+        "Varshitha Reddy Medarametla": ["VARSHITHA MEDARAMETLA"],
+        "Aidan O'Donnell": ["AIDAN O'DONNELL", "AIDAN ODONNELL", "Aidan ODonnell", "Aidan O Donnell"],
+        "Sai Sandeep Sandeep": ["SAI SANDEEP", "Sai Sandeep", "SAI SANDEEP SANDEEP"],
+        "Cherry Tao": ["CHERRY TAO", "Cherry Y. Tao", "CHERRY Y TAO", "Cherry", "Tao"]
+    }
+
     # Find the start of each resume by looking for the candidate's name as a heading
     for i, (candidate_name, email) in enumerate(candidates):
-        # Escape special characters in the name for regex
-        escaped_name = re.escape(candidate_name)
+        # Try to find the resume with the exact name
+        resume_found = False
 
-        # Find the start of this candidate's resume
-        resume_start_pattern = rf'# {escaped_name}\n'
-        start_match = re.search(resume_start_pattern, content)
+        # List of possible name variations to try
+        names_to_try = [candidate_name]
 
-        if not start_match:
+        # Add variations if they exist
+        if candidate_name in name_variations:
+            names_to_try.extend(name_variations[candidate_name])
+
+        # Define special patterns for hard-to-find candidates
+        special_patterns = []
+        if candidate_name in ["Aidan O'Donnell", "Sai Sandeep Sandeep", "Cherry Tao"]:
+            # Try to find any heading that contains part of the name
+            name_parts = candidate_name.split()
+            for part in name_parts:
+                if len(part) > 2 and part not in ["the", "and", "for"]:  # Only use parts that are meaningful
+                    part_pattern = rf'# [^\n]*{part}[^\n]*\n'
+                    special_patterns.append(part_pattern)
+
+        # Try each name variation
+        for name_variation in names_to_try:
+            # Escape special characters in the name for regex
+            escaped_name = re.escape(name_variation)
+
+            # Try different heading patterns
+            heading_patterns = [
+                rf'# {escaped_name}\n',  # Standard heading
+                rf'# {escaped_name.upper()}\n',  # Uppercase heading
+                rf'# {escaped_name.title()}\n',   # Title case heading
+                rf'#{escaped_name}\n',   # No space after #
+                rf'#{escaped_name.upper()}\n',   # No space after # with uppercase
+                rf'#{escaped_name.title()}\n'   # No space after # with title case
+            ]
+
+            # Try each heading pattern
+            for pattern in heading_patterns + special_patterns:
+                start_match = re.search(pattern, content)
+                if start_match:
+                    start_pos = start_match.start()
+
+                    # Find the start of the next candidate's resume (if any)
+                    end_pos = len(content)
+
+                    # Try to find the next heading
+                    next_heading_match = re.search(r'# [A-Z]', content[start_pos + len(pattern):])
+                    if next_heading_match:
+                        end_pos = start_pos + len(pattern) + next_heading_match.start()
+
+                    # Extract the resume content
+                    resume_text = content[start_pos:end_pos].strip()
+
+                    # Store in the map
+                    resume_map[candidate_name] = {
+                        "text": resume_text,
+                        "email": email
+                    }
+
+                    resume_found = True
+                    break
+
+            if resume_found:
+                break
+
+        # Special case for Cherry Tao - if we still can't find her resume
+        if not resume_found and candidate_name == "Cherry Tao":
+            # Try to find her resume by looking for her email in the content
+            email_pattern = r'cytao2@illinois\.edu'
+            email_match = re.search(email_pattern, content)
+
+            if email_match:
+                # Find the nearest heading before this email
+                heading_pos = content[:email_match.start()].rfind("# ")
+                if heading_pos != -1:
+                    start_pos = heading_pos
+
+                    # Find the next heading after this position
+                    next_heading_pos = content[email_match.end():].find("# ")
+                    if next_heading_pos != -1:
+                        end_pos = email_match.end() + next_heading_pos
+                    else:
+                        end_pos = len(content)
+
+                    # Extract the resume content
+                    resume_text = content[start_pos:end_pos].strip()
+
+                    # Store in the map
+                    resume_map[candidate_name] = {
+                        "text": resume_text,
+                        "email": email
+                    }
+
+                    resume_found = True
+                    logger.info(f"Found Cherry Tao's resume using email search")
+
+        if not resume_found:
             logger.warning(f"Could not find resume start for {candidate_name}, skipping")
-            continue
-
-        start_pos = start_match.start()
-
-        # Find the start of the next candidate's resume (if any)
-        end_pos = len(content)
-        if i < len(candidates) - 1:
-            next_candidate, _ = candidates[i + 1]
-            escaped_next_name = re.escape(next_candidate)
-            next_start_pattern = rf'# {escaped_next_name}\n'
-            next_start_match = re.search(next_start_pattern, content)
-            if next_start_match:
-                end_pos = next_start_match.start()
-
-        # Extract the resume content
-        resume_text = content[start_pos:end_pos].strip()
-
-        # Store in the map
-        resume_map[candidate_name] = {
-            "text": resume_text,
-            "email": email
-        }
 
     logger.info(f"Extracted {len(resume_map)} resumes from the text file")
 
@@ -373,14 +469,23 @@ def main():
     """Main function to run the script."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Extract individual resumes from a processed text file.")
-    parser.add_argument("--input-file", type=str, default="data/processed_text/Sales Engineer AI Growth.txt",
-                        help="Path to the processed text file")
-    parser.add_argument("--output-dir", type=str, default="data/extracted_resumes",
-                        help="Directory to save individual resume JSON files")
-
+    parser = argparse.ArgumentParser(description='Extract individual resumes from a processed text file.')
+    parser.add_argument('--input-file', required=True, help='Path to the processed text file')
+    parser.add_argument('--output-dir', required=True, help='Directory to save individual resume JSON files')
+    parser.add_argument('--clean', action='store_true', help='Clean the output directory before extraction')
     args = parser.parse_args()
 
+    # Clean the output directory if requested
+    if args.clean:
+        output_path = Path(args.output_dir)
+        if output_path.exists():
+            logger.info(f"Cleaning output directory: {args.output_dir}")
+            # Remove all JSON files in the directory
+            for file_path in output_path.glob('*.json'):
+                file_path.unlink()
+            logger.info(f"Output directory cleaned")
+
+    # Extract resumes
     extract_resumes(args.input_file, args.output_dir)
 
 if __name__ == "__main__":

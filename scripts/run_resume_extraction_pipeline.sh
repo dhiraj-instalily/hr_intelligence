@@ -11,9 +11,9 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Check if LLAMA_CLOUD_API_KEY is set
-if [ -z "$LLAMA_CLOUD_API_KEY" ]; then
-    echo "Error: LLAMA_CLOUD_API_KEY environment variable not set"
+# Check if OPENAI_API_KEY is set
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "Error: OPENAI_API_KEY environment variable not set"
     echo "Please set it in the .env file or export it before running this script"
     exit 1
 fi
@@ -33,10 +33,10 @@ fi
 
 # Step 2: Extract individual resumes
 echo "Step 2: Extracting individual resumes..."
-python scripts/extract_resumes.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-dir "data/extracted_resumes"
+python scripts/extract_resumes.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-dir "data/extracted_resumes" --clean
 
-# Step 3: Process resumes with LLM
-echo "Step 3: Processing resumes with LLM..."
+# Step 3: Process resumes with GPT-4o
+echo "Step 3: Processing resumes with GPT-4o..."
 python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes"
 
 # Step 4: Populate the database (if script exists)

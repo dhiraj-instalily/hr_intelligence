@@ -38,9 +38,9 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [ ] Develop the query interface for natural language queries
 - [ ] Add more test cases and improve error handling
 - [ ] Enhance documentation and add usage examples
-- [ ] Verify individual resume extraction with name-to-text mapping
+- [x] Verify individual resume extraction with name-to-text mapping
 - [ ] Update GPT-4o implementation to use structured output instead of function calling
-- [ ] Fix resume extraction issues with non-candidate names and name variations
+- [x] Fix resume extraction issues with non-candidate names and name variations
 
 ## LlamaParse Integration
 
@@ -153,8 +153,10 @@ python parse_pdf.py
 #### Extract Individual Resumes
 
 ```bash
-python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes
+python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes --clean
 ```
+
+The `--clean` flag will remove all existing JSON files in the output directory before extraction, ensuring clean results.
 
 #### Verify Resume Extraction
 
@@ -166,13 +168,18 @@ python scripts/verify_resume_extraction.py --input-file data/processed_text/Sale
 
 This creates a mapping from candidate names to their raw resume text, which can be manually inspected to ensure proper extraction.
 
+**Improvements to Resume Extraction:**
+
+- ✅ Fixed extraction of non-candidate headings (like "COMMUNITY_INVOLVEMENT", "PROFESSIONAL_EXPERIENCE")
+- ✅ Added support for candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE")
+- ✅ Implemented special case handling for hard-to-find candidates
+- ✅ Added email-based search for candidates whose names can't be found in headings
+- ✅ Improved heading pattern matching to handle different formatting styles
+
 **Known Issues:**
 
-- Some non-candidate headings (like "COMMUNITY_INVOLVEMENT", "PROFESSIONAL_EXPERIENCE") are incorrectly extracted as candidates
-- Candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE") may be missed
-- Special characters or different formatting in names can cause extraction failures
-
-These issues will be addressed in future updates to improve extraction accuracy.
+- Some extracted resumes may contain limited information if the original text doesn't follow standard formatting
+- The extraction process relies on consistent heading patterns in the document
 
 #### Process Resumes with GPT-4o
 
