@@ -15,6 +15,25 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - **Natural Language Queries**: Query the database using natural language
 - **Caching**: Cache query results for improved performance
 
+## Project Status
+
+### What's Been Done
+
+- ✅ Project structure and configuration set up
+- ✅ LlamaParse integration for advanced PDF parsing
+- ✅ PDF parsing functionality implemented and tested
+- ✅ Successfully parsed sample resume data ("Sales Engineer AI Growth.pdf")
+- ✅ Basic data extraction and JSON output implemented
+- ✅ GitHub repository established at [https://github.com/dhiraj-instalily/hr_intelligence](https://github.com/dhiraj-instalily/hr_intelligence)
+
+### Next Steps
+
+- [ ] Complete the data extraction pipeline with LLM-based schema extraction
+- [ ] Implement database storage for extracted data
+- [ ] Develop the query interface for natural language queries
+- [ ] Add more test cases and improve error handling
+- [ ] Enhance documentation and add usage examples
+
 ## LlamaParse Integration
 
 This project uses [LlamaParse](https://docs.llamaindex.ai/en/v0.10.34/module_guides/loading/connector/llama_parse/) for advanced PDF parsing. LlamaParse is a proprietary parsing service designed to handle the complexities of PDFs and other document types, with industry-leading table extraction capabilities.
@@ -39,6 +58,59 @@ To use LlamaParse, you need to:
    ```
    LLAMA_CLOUD_API_KEY=llx-your-api-key
    ```
+
+## Quick Start Guide
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dhiraj-instalily/hr_intelligence.git
+cd hr_intelligence
+```
+
+### 2. Set Up Environment
+
+```bash
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up your LlamaCloud API key
+echo "LLAMA_CLOUD_API_KEY=your-api-key-here" >> .env
+```
+
+### 3. Parse a PDF
+
+You can use the standalone parsing script to process a PDF:
+
+```bash
+# Place your PDF in the raw_pdfs directory
+mkdir -p data/raw_pdfs
+cp your-document.pdf data/raw_pdfs/
+
+# Run the parsing script
+python parse_pdf.py
+```
+
+Or modify the script to process your specific PDF:
+
+```python
+# Edit parse_pdf.py to point to your PDF
+pdf_path = "data/raw_pdfs/your-document.pdf"
+output_text_path = "data/processed_text/your-document.txt"
+output_json_path = "data/json_data/your-document.json"
+```
+
+### 4. Batch Process Multiple PDFs
+
+To process multiple PDFs at once:
+
+```bash
+python scripts/batch_ingest.py --input-dir data/raw_pdfs --output-dir data/processed_text --json-dir data/json_data
+```
 
 ## Project Structure
 
@@ -80,44 +152,18 @@ hr_intelligence/
 │   ├── test_ingestion.py
 │   └── test_retrieval.py
 │
+├── parse_pdf.py             # Standalone script for parsing a single PDF
+├── run_ingest.sh            # Helper script for running batch ingest with API key
 ├── .env                     # Environment variables (API keys, DB creds)
 ├── requirements.txt         # Python dependencies
 └── README.md                # Project documentation
 ```
 
-## Installation
-
-1. Clone the repository:
-
-   ```
-   git clone https://github.com/yourusername/hr_intelligence.git
-   cd hr_intelligence
-   ```
-
-2. Create a virtual environment:
-
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-
-   ```
-   pip install -r requirements.txt
-   ```
-
-4. Set up environment variables:
-   ```
-   cp .env.example .env
-   # Edit .env with your API keys and configuration
-   ```
-
-## Usage
+## Advanced Usage
 
 ### Processing PDF Documents
 
-To process a single PDF document:
+To process a single PDF document programmatically:
 
 ```python
 from src.ingestion.pdf_parser import PDFParser
@@ -140,54 +186,26 @@ extracted_data = data_extractor.extract_data(text)
 db_handler.insert_document(extracted_data.get('document_type'), pdf_path, extracted_data)
 ```
 
-To batch process multiple PDF documents:
+### Asynchronous Processing
+
+For improved performance with multiple documents, use the asynchronous API:
 
 ```bash
-python scripts/batch_ingest.py --input-dir data/raw_pdfs --output-dir data/processed_text --json-dir data/json_data
+python scripts/batch_ingest.py --input-dir data/raw_pdfs --output-dir data/processed_text --json-dir data/json_data --async
 ```
-
-### Querying the Database
-
-```python
-from src.retrieval.database_connector import DatabaseConnector
-from src.retrieval.query_tools import QueryTools
-from src.utils.helpers import load_config
-
-# Load configuration
-config = load_config()
-
-# Initialize components
-db = DatabaseConnector(config.get('database', {}))
-query_tools = QueryTools(db, config.get('llm', {}))
-
-# Execute a natural language query
-results = query_tools.execute_query("Find software engineers with Python experience")
-
-# Print results
-for result in results.get('results', []):
-    print(f"Candidate: {result['content'].get('candidate_name')}")
-    print(f"Skills: {', '.join(result['content'].get('skills', []))}")
-    print("---")
-```
-
-## Testing
-
-Run the tests:
-
-```bash
-pytest
-```
-
-Run tests with coverage:
-
-```bash
-pytest --cov=src tests/
-```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+To contribute to this project:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
