@@ -17,12 +17,15 @@ This hybrid approach allows for both precise structured queries and fuzzy/semant
 - **DuckDB Handler** (`src/database/duckdb_handler.py`): Structured data storage with fuzzy search
 - **ChromaDB Handler** (`src/database/chroma_handler.py`): Vector storage for semantic search
 - **Hybrid Search** (`src/database/hybrid_search.py`): Combines both approaches for powerful search
+- **MCP Tools** (`fixed_hr_tools.py`, `mcp_server.py`): Model Context Protocol tools for AI assistants
 
 ### Scripts
 
 - **Populate Database** (`scripts/populate_hybrid_db.py`): Populates the database with resume data
 - **Search Resumes** (`scripts/search_resumes.py`): Searches for resumes using hybrid search
 - **Setup Database** (`scripts/setup_database.sh`): Sets up the database environment
+- **MCP Server** (`mcp_server.py`): Runs the MCP server for AI assistant integration
+- **MCP Client** (`mcp_client.py`): Example client for testing MCP tools
 
 ## Recent Database Ingestion Fixes
 
@@ -65,6 +68,70 @@ Several issues with database ingestion have been fixed to ensure smooth operatio
   - The system now properly detects existing collections
   - Added better logging for collection creation and reuse
 
+### 4. DuckDB Handler Fixes
+
+- **Result Processing**: Fixed issues with DuckDB result processing
+  - Modified the code to handle tuple results correctly
+  - Added column name extraction to properly convert results to dictionaries
+  - This ensures that database queries return properly structured data
+
+## MCP Tools Implementation
+
+We've implemented Model Context Protocol (MCP) tools to allow AI assistants to interact with the HR Intelligence database. These tools provide a structured way for AI assistants to search and retrieve candidate information.
+
+### Key MCP Components
+
+- **Fixed Tool Functions** (`fixed_hr_tools.py`): Core functionality for database interaction
+- **MCP Server** (`mcp_server.py`): MCP server that exposes the tools to AI assistants
+- **MCP Client** (`mcp_client.py`): Example client for testing the MCP tools
+- **MCP Documentation** (`MCP_TOOLS_README.md`): Detailed documentation for the MCP tools
+
+### Available MCP Tools
+
+1. **search_by_role_tool**: Fuzzy search for roles/responsibilities with optional company filter
+   - Parameters: `keywords` (str), `company` (str, optional)
+   - Returns: List of candidates matching the search criteria
+
+2. **semantic_search_experience_tool**: Deep semantic search across all work experiences
+   - Parameters: `query` (str)
+   - Returns: List of candidates with semantically matching experiences
+
+3. **find_skill_combinations_tool**: Find candidates with ANY or ALL of specified skills
+   - Parameters: `skills` (List[str]), `match_all` (bool, optional)
+   - Returns: List of candidates matching the skill criteria
+
+4. **get_candidate_details_tool**: Get detailed information about a specific candidate
+   - Parameters: `candidate_id` (str)
+   - Returns: Complete candidate profile with all available information
+
+5. **search_by_education_tool**: Search for candidates by education criteria
+   - Parameters: `institution` (str, optional), `degree` (str, optional)
+   - Returns: List of candidates matching the education criteria
+
+### MCP Implementation Details
+
+- **Direct Database Access**: The tools access the database directly without using the hybrid search handler
+- **Column Name Extraction**: Fixed issues with DuckDB result processing by extracting column names
+- **JSON Parsing**: Properly parses JSON fields from the database
+- **Error Handling**: Includes robust error handling for database operations
+- **Serialization**: Converts database objects to JSON-serializable formats for API responses
+
+### Using the MCP Tools
+
+1. **Start the MCP Server**:
+   ```bash
+   python mcp_server.py
+   ```
+
+2. **Test with the MCP Client**:
+   ```bash
+   python mcp_client.py
+   ```
+
+3. **Integrate with AI Assistants**:
+   - AI assistants that support the Model Context Protocol can use these tools
+   - The tools provide a structured way for AI assistants to access and search the HR database
+
 ## Getting Started
 
 1. Install dependencies:
@@ -86,6 +153,11 @@ Several issues with database ingestion have been fixed to ensure smooth operatio
 4. Search for resumes:
    ```bash
    python scripts/search_resumes.py --query "web development experience with React"
+   ```
+
+5. Start the MCP server:
+   ```bash
+   python mcp_server.py
    ```
 
 ## Potential Issues and Verification Steps
@@ -117,6 +189,23 @@ Several issues with database ingestion have been fixed to ensure smooth operatio
    - **Verification**: Check for network errors during first run
    - **Fix**: Manually download the model or use a different model
 
+### MCP Server Issues
+
+1. **Server Won't Start**
+   - **Issue**: The MCP server might fail to start
+   - **Verification**: Check the error messages when starting the server
+   - **Fix**: Ensure all dependencies are installed and the database files exist
+
+2. **Tool Execution Errors**
+   - **Issue**: MCP tools might fail to execute
+   - **Verification**: Check the error messages in the server logs
+   - **Fix**: Ensure the database is properly populated and the tool functions are working
+
+3. **Client Connection Issues**
+   - **Issue**: The MCP client might fail to connect to the server
+   - **Verification**: Check if the server is running and listening on the expected port
+   - **Fix**: Ensure the server is running and the client is using the correct URL
+
 ### Data Verification Steps
 
 1. **Database Population Verification**
@@ -146,6 +235,11 @@ Several issues with database ingestion have been fixed to ensure smooth operatio
 4. **ChromaDB Verification**
    - Run a semantic search and verify results
    - Check that the ChromaDB directory contains the expected files
+
+5. **MCP Tools Verification**
+   - Run the test script: `python test_fixed_tools.py`
+   - Verify that all tools return expected results
+   - Check that the MCP server starts without errors
 
 ## Next Steps and Improvements
 
@@ -178,6 +272,12 @@ Several issues with database ingestion have been fixed to ensure smooth operatio
    - Build on top of the hybrid search to support natural language queries
    - Use an LLM to translate natural language to structured queries
 
+8. **Enhance MCP Tools**
+   - Add authentication to the MCP server
+   - Implement more advanced search tools
+   - Add tools for database administration (adding/removing candidates)
+   - Create a web UI that uses the MCP tools
+
 ## Troubleshooting Common Issues
 
 ### No Results Found
@@ -204,11 +304,20 @@ If search results are inconsistent:
 3. Check for duplicate entries in the database
 4. Ensure that the search weights are properly balanced
 
+### MCP Server Issues
+
+If the MCP server is not working:
+1. Check that the MCP SDK is installed: `pip install mcp-sdk`
+2. Verify that the database files exist at the expected locations
+3. Check for port conflicts (default is 8000)
+4. Run the server with debug logging: `python mcp_server.py --log-level DEBUG`
+
 ## Documentation
 
 For more detailed information, refer to:
 - `DATABASE.md` - General database usage instructions
 - `src/database/README.md` - Technical details about the database module
+- `MCP_TOOLS_README.md` - Detailed documentation for the MCP tools
 
 ## Contact
 

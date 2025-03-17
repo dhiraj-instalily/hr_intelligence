@@ -46,6 +46,10 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [x] Update GPT-4o implementation to use structured output instead of function calling
 - [x] Fix resume extraction issues with non-candidate names and name variations
 - [x] Fix database ingestion issues with schema validation and data formatting
+- [x] Implement MCP tools for AI assistant integration
+- [ ] Create a web UI for interacting with the database
+- [ ] Add authentication to the MCP server
+- [ ] Implement more advanced search capabilities
 
 ## Database Module
 
@@ -102,6 +106,65 @@ If you encounter issues with database ingestion:
    - ChromaDB collection creation is now properly handled with appropriate error catching
 
 For more detailed information on database troubleshooting, see the `instruction.txt` file.
+
+## MCP Tools Integration
+
+The HR Intelligence system now includes Model Context Protocol (MCP) tools that allow AI assistants to interact with the HR database. These tools provide a structured way for AI assistants to search and retrieve candidate information.
+
+### MCP Features
+
+- **AI Assistant Integration**: Expose database functionality to AI assistants via MCP
+- **Structured Tool Interfaces**: Well-defined tools with clear parameters and return values
+- **Semantic Search**: Deep semantic search across work experiences using vector embeddings
+- **Skill-Based Search**: Find candidates with specific skill combinations
+- **Role-Based Search**: Search for candidates based on roles and responsibilities
+- **Education Search**: Find candidates based on educational background
+- **Detailed Candidate Information**: Retrieve comprehensive candidate profiles
+
+### Available MCP Tools
+
+1. **search_by_role_tool**: Fuzzy search for roles/responsibilities with optional company filter
+2. **semantic_search_experience_tool**: Deep semantic search across all work experiences
+3. **find_skill_combinations_tool**: Find candidates with ANY or ALL of specified skills
+4. **get_candidate_details_tool**: Get detailed information about a specific candidate
+5. **search_by_education_tool**: Search for candidates by education criteria
+
+### Using the MCP Tools
+
+For detailed instructions on using the MCP tools, see the [MCP_TOOLS_README.md](MCP_TOOLS_README.md) file.
+
+Quick start:
+
+```bash
+# Start the MCP server
+python mcp_server.py
+
+# Test the MCP tools with the example client
+python mcp_client.py
+```
+
+### MCP Tools Troubleshooting
+
+If you encounter issues with the MCP tools:
+
+1. **Server Won't Start**:
+
+   - Check that all dependencies are installed
+   - Verify that the database files exist at the expected locations
+   - Check for port conflicts (default is 8000)
+
+2. **Tool Execution Errors**:
+
+   - Check the server logs for error messages
+   - Verify that the database is properly populated
+   - Ensure the parameters are correctly formatted
+
+3. **Client Connection Issues**:
+   - Verify that the server is running
+   - Check that the client is using the correct URL
+   - Ensure there are no network issues or firewalls blocking the connection
+
+For more detailed information on MCP tools troubleshooting, see the `instruction.txt` file.
 
 ## Debugging Tools
 
@@ -379,10 +442,15 @@ hr_intelligence/
 │   ├── test_ingestion.py
 │   └── test_retrieval.py
 │
+├── mcp_server.py            # MCP server for AI assistant integration
+├── mcp_client.py            # Example client for testing MCP tools
+├── fixed_hr_tools.py        # Core functionality for MCP tools
+├── MCP_TOOLS_README.md      # Detailed documentation for MCP tools
 ├── parse_pdf.py             # Standalone script for parsing a single PDF
 ├── run_ingest.sh            # Helper script for running batch ingest with API key
 ├── .env                     # Environment variables (API keys, DB creds)
 ├── requirements.txt         # Python dependencies
+├── instruction.txt          # Detailed implementation instructions
 └── README.md                # Project documentation
 ```
 

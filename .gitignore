@@ -56,9 +56,18 @@ data/raw_pdfs/*
 data/processed_text/*
 data/json_data/*
 data/hr_database.db
+data/hr_database.duckdb
+data/chroma_db/
+data/extracted_resumes/*
+data/llm_processed_resumes/*
+data/llm_processed_resumes_backup/*
+data/verification/*
 logs/
 
 # Keep .gitkeep files
 !data/raw_pdfs/.gitkeep
 !data/processed_text/.gitkeep
 !data/json_data/.gitkeep
+!data/extracted_resumes/.gitkeep
+!data/llm_processed_resumes/.gitkeep
+!data/verification/.gitkeep
