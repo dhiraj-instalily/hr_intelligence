@@ -1,0 +1,66 @@
+# HR Intelligence - Instructions
+
+## Overview
+This document provides instructions for using the HR Intelligence system to extract, process, and query HR documents using LLMs.
+
+## Key Learnings
+1. LlamaParse provides superior PDF parsing capabilities, especially for tables and complex layouts
+2. A single PDF can contain multiple resumes that need to be separated for proper processing
+3. Regex-based extraction has limitations; LLM-based extraction would be more accurate
+4. Proper schema validation ensures data consistency
+
+## Important File Paths
+- PDF Parser: `/src/ingestion/pdf_parser.py`
+- Standalone Parser: `/parse_pdf.py`
+- Resume Extraction: `/scripts/extract_resumes.py`
+- Database Population: `/scripts/populate_database.py`
+- Schema Definitions: `/src/retrieval/schema.py`
+- Configuration: `/config/config.yaml`
+
+## Workflow for Processing Multi-Resume PDFs
+
+### 1. Parse the PDF
+```bash
+python parse_pdf.py
+```
+This parses the PDF at `data/raw_pdfs/Sales Engineer AI Growth.pdf` and outputs:
+- Text: `data/processed_text/Sales Engineer AI Growth.txt`
+- JSON: `data/json_data/Sales Engineer AI Growth.json`
+
+### 2. Extract Individual Resumes
+```bash
+python scripts/extract_resumes.py
+```
+This extracts individual resumes from the processed text and saves them to:
+- `data/extracted_resumes/[Candidate_Name].json`
+
+Current limitations:
+- Section headers are sometimes identified as candidate names
+- Regex patterns need refinement for better extraction
+- Validation against schema needs improvement
+
+### 3. Populate the Database
+```bash
+python scripts/populate_database.py
+```
+This inserts the extracted resumes into the database defined in the config.
+
+## Improvement Opportunities
+1. Use the applicant table at the beginning of the document to identify valid candidate names
+2. Implement LLM-based extraction for more accurate results
+3. Improve regex patterns for better section identification
+4. Add more robust validation against the schema
+5. Implement a more structured approach to parsing based on document hierarchy
+
+## API Key Setup
+Set your LlamaCloud API key in the `.env` file:
+```
+LLAMA_CLOUD_API_KEY=llx-your-api-key
+```
+
+## Next Steps
+1. Refine the extraction script to better identify candidate names
+2. Implement LLM-based extraction for complex fields
+3. Improve database integration and validation
+4. Develop the query interface for natural language queries
+5. Add more test cases and improve error handling
