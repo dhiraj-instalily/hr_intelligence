@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to use an LLM to extract structured information from resumes according to the schema.
+Uses GPT-4o with structured output from OpenAI.
 """
 
 import os
@@ -11,12 +12,13 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import requests
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.utils.logger import get_logger
-from src.retrieval.schema import Resume
+from src.retrieval.schema import Resume, Education, WorkExperience, ContactInfo
 
 logger = get_logger(__name__)
 
@@ -25,7 +27,8 @@ load_dotenv()
 
 def get_llm_extraction(resume_text: str, schema_json: str) -> Dict[str, Any]:
     """
-    Use an LLM to extract structured information from resume text according to the schema.
+    Use GPT-4o to extract structured information from resume text according to the schema.
+    Uses OpenAI's structured output feature for more reliable extraction.
 
     Args:
         resume_text: The raw text of the resume
@@ -35,76 +38,58 @@ def get_llm_extraction(resume_text: str, schema_json: str) -> Dict[str, Any]:
         Dictionary containing the structured resume information
     """
     # Get API key from environment variable
-    api_key = os.getenv("LLAMA_CLOUD_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise ValueError("LLAMA_CLOUD_API_KEY environment variable not set")
+        raise ValueError("OPENAI_API_KEY environment variable not set")
 
-    # Construct the prompt for the LLM
-    prompt = f"""
-You are an expert resume parser. Extract structured information from the following resume text according to the provided schema.
+    # Initialize OpenAI client
+    client = OpenAI(api_key=api_key)
+
+    # Parse the schema JSON to include in the system message
+    schema_dict = json.loads(schema_json)
+
+    # System message with instructions and schema
+    system_message = f"""
+You are an expert resume parser. Extract structured information from the resume text according to the provided schema.
+
+Schema:
+```json
+{json.dumps(schema_dict, indent=2)}
+```
+
 Follow these guidelines:
 1. Extract all relevant information that fits the schema
 2. If information is not present in the resume, use null or empty lists as appropriate
-3. Ensure the output is valid JSON that conforms to the schema
-4. Be precise and accurate in your extraction
-
-SCHEMA:
-{schema_json}
-
-RESUME TEXT:
-{resume_text}
-
-Return ONLY the JSON object with the extracted information. Do not include any explanations or additional text.
+3. Be precise and accurate in your extraction
+4. For education and work experience, extract dates in the format provided in the resume
+5. For responsibilities, extract complete bullet points as separate items in the list
+6. Your response must be a valid JSON object that conforms to the schema
+7. The JSON object must include the following required fields: document_type, candidate_name, contact_info, education, work_experience, skills
 """
 
-    # Call the LLM API (using LlamaCloud API as an example)
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "messages": [
-            {"role": "system", "content": "You are an expert resume parser that extracts structured information from resume text."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.2,  # Low temperature for more deterministic output
-        "max_tokens": 2000
-    }
-
     try:
-        response = requests.post(
-            "https://api.llamacloud.ai/v1/chat/completions",
-            headers=headers,
-            json=data
+        # Call the OpenAI API with structured output format
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.2,  # Low temperature for more deterministic output
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Extract structured information from this resume:\n\n{resume_text}"}
+            ],
+            response_format={"type": "json_object"}
         )
-        response.raise_for_status()
 
-        # Extract the LLM's response
-        result = response.json()
-        llm_response = result["choices"][0]["message"]["content"]
-
-        # Parse the JSON response
-        # Find JSON object in the response (in case the LLM added any text before or after)
-        import re
-        json_match = re.search(r'({.*})', llm_response, re.DOTALL)
-        if json_match:
-            llm_response = json_match.group(1)
-
-        extracted_data = json.loads(llm_response)
+        # Extract the structured response
+        extracted_data = json.loads(response.choices[0].message.content)
         return extracted_data
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error calling LLM API: {e}")
-        raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Error parsing LLM response as JSON: {e}")
-        logger.error(f"LLM response: {llm_response}")
+    except Exception as e:
+        logger.error(f"Error calling OpenAI API: {e}")
         raise
 
 def process_resumes(input_dir: str, output_dir: str) -> None:
     """
-    Process all resume JSON files in the input directory using an LLM.
+    Process all resume JSON files in the input directory using GPT-4o.
 
     Args:
         input_dir: Directory containing extracted resume JSON files
@@ -115,7 +100,7 @@ def process_resumes(input_dir: str, output_dir: str) -> None:
     output_path.mkdir(exist_ok=True, parents=True)
 
     # Get the schema as a JSON string
-    schema_dict = Resume.schema()
+    schema_dict = Resume.model_json_schema()  # Updated from schema() to model_json_schema()
     schema_json = json.dumps(schema_dict, indent=2)
 
     # Process each resume file
@@ -142,15 +127,15 @@ def process_resumes(input_dir: str, output_dir: str) -> None:
                 resume_data_copy = {k: v for k, v in resume_data.items() if k != "raw_text"}
                 resume_text = json.dumps(resume_data_copy, indent=2)
 
-            # Use LLM to extract structured information
+            # Use GPT-4o to extract structured information
             extracted_data = get_llm_extraction(resume_text, schema_json)
 
             # Validate against schema
             try:
                 Resume(**extracted_data)
-                logger.info(f"LLM-extracted resume for {candidate_name} validated successfully")
+                logger.info(f"GPT-4o extracted resume for {candidate_name} validated successfully")
             except Exception as e:
-                logger.warning(f"LLM-extracted resume for {candidate_name} failed validation: {e}")
+                logger.warning(f"GPT-4o extracted resume for {candidate_name} failed validation: {e}")
                 # Continue processing even if validation fails
 
             # Save to JSON file
@@ -158,18 +143,18 @@ def process_resumes(input_dir: str, output_dir: str) -> None:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(extracted_data, f, indent=2)
 
-            logger.info(f"Saved LLM-processed resume for {candidate_name} to {output_file}")
+            logger.info(f"Saved GPT-4o processed resume for {candidate_name} to {output_file}")
 
         except Exception as e:
             logger.error(f"Error processing resume file {resume_file}: {e}")
 
 def main():
     """Main function to run the script."""
-    parser = argparse.ArgumentParser(description="Use an LLM to extract structured information from resumes.")
+    parser = argparse.ArgumentParser(description="Use GPT-4o to extract structured information from resumes.")
     parser.add_argument("--input-dir", type=str, default="data/extracted_resumes",
                         help="Directory containing extracted resume JSON files")
     parser.add_argument("--output-dir", type=str, default="data/llm_processed_resumes",
-                        help="Directory to save LLM-processed resume JSON files")
+                        help="Directory to save GPT-4o processed resume JSON files")
 
     args = parser.parse_args()
 

@@ -9,7 +9,8 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 ## Features
 
 - **Advanced PDF Processing**: Extract text and tables from PDF documents using LlamaParse, with superior table extraction capabilities
-- **LLM-based Extraction**: Use large language models to extract structured data from text
+- **LLM-based Extraction**: Use GPT-4o to extract structured data from text with high accuracy
+- **Function Calling**: Leverage OpenAI's function calling for reliable structured output
 - **Schema Validation**: Validate extracted data against predefined schemas
 - **Database Storage**: Store extracted data in a structured database
 - **Natural Language Queries**: Query the database using natural language
@@ -27,8 +28,9 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - ✅ GitHub repository established at [https://github.com/dhiraj-instalily/hr_intelligence](https://github.com/dhiraj-instalily/hr_intelligence)
 - ✅ Added scripts to extract individual resumes from a single PDF and populate the database
 - ✅ Improved resume extraction by identifying candidates from tables
-- ✅ Implemented LLM-based schema extraction for more accurate resume parsing
+- ✅ Implemented GPT-4o-based schema extraction for more accurate resume parsing
 - ✅ Created an end-to-end pipeline script for the entire extraction process
+- ✅ Integrated OpenAI's function calling for reliable structured data extraction
 
 ### Next Steps
 
@@ -36,6 +38,8 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [ ] Develop the query interface for natural language queries
 - [ ] Add more test cases and improve error handling
 - [ ] Enhance documentation and add usage examples
+- [ ] Verify individual resume extraction with name-to-text mapping
+- [ ] Update GPT-4o implementation to use structured output instead of function calling
 
 ## LlamaParse Integration
 
@@ -62,6 +66,31 @@ To use LlamaParse, you need to:
    LLAMA_CLOUD_API_KEY=llx-your-api-key
    ```
 
+## GPT-4o Integration
+
+This project uses OpenAI's GPT-4o model for structured data extraction from resume text. The implementation leverages structured output to ensure reliable and consistent structured output.
+
+### GPT-4o Features
+
+- **High Accuracy**: Extracts information with superior accuracy compared to other models
+- **Structured Output**: Uses OpenAI's structured output feature for reliable JSON responses
+- **Schema Validation**: Extracted data is validated against predefined schemas
+- **Consistent Format**: Ensures data is extracted in a consistent format for database storage
+
+### GPT-4o Setup
+
+To use GPT-4o, you need to:
+
+1. Get an API key from [OpenAI](https://platform.openai.com)
+2. Set the API key in your environment variables:
+   ```
+   export OPENAI_API_KEY="sk-your-api-key"
+   ```
+   Or add it to your `.env` file:
+   ```
+   OPENAI_API_KEY=sk-your-api-key
+   ```
+
 ## Quick Start Guide
 
 ### 1. Clone the Repository
@@ -81,8 +110,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up your LlamaCloud API key
-echo "LLAMA_CLOUD_API_KEY=your-api-key-here" >> .env
+# Set up your API keys
+echo "LLAMA_CLOUD_API_KEY=your-llama-api-key-here" >> .env
+echo "OPENAI_API_KEY=your-openai-api-key-here" >> .env
 ```
 
 ### 3. Run the Complete Pipeline
@@ -101,7 +131,7 @@ This script will:
 
 1. Parse the PDF (if not already done)
 2. Extract individual resumes
-3. Process resumes with LLM for accurate schema extraction
+3. Process resumes with GPT-4o for accurate schema extraction
 4. Populate the database (if the script exists)
 
 ### 4. Run Individual Steps
@@ -125,7 +155,17 @@ python parse_pdf.py
 python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes
 ```
 
-#### Process Resumes with LLM
+#### Verify Resume Extraction
+
+To verify that individual resumes are extracted correctly:
+
+```bash
+python scripts/verify_resume_extraction.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-file data/verification/name_to_text_map.json
+```
+
+This creates a mapping from candidate names to their raw resume text, which can be manually inspected to ensure proper extraction.
+
+#### Process Resumes with GPT-4o
 
 ```bash
 python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes
@@ -153,7 +193,7 @@ hr_intelligence/
 │   ├── processed_text/      # Extracted text from PDFs
 │   ├── json_data/           # JSON files from initial parsing
 │   ├── extracted_resumes/   # Individual resume JSON files
-│   └── llm_processed_resumes/ # LLM-processed resume JSON files
+│   └── llm_processed_resumes/ # GPT-4o-processed resume JSON files
 │
 ├── src/
 │   ├── ingestion/           # Data processing pipeline
@@ -174,7 +214,7 @@ hr_intelligence/
 ├── scripts/                 # Utility scripts
 │   ├── batch_ingest.py      # Bulk PDF processing
 │   ├── extract_resumes.py   # Extract individual resumes from processed text
-│   ├── llm_schema_extraction.py # LLM-based schema extraction
+│   ├── llm_schema_extraction.py # GPT-4o-based schema extraction
 │   ├── populate_database.py # Insert extracted resumes into database
 │   ├── run_resume_extraction_pipeline.sh # End-to-end pipeline script
 │   └── db_cleanup.py        # Database maintenance
@@ -241,24 +281,52 @@ Our improved workflow for processing collections of resumes:
    python scripts/extract_resumes.py
    ```
 
-3. Process resumes with LLM for accurate schema extraction:
+3. Process resumes with GPT-4o for accurate schema extraction:
 
    ```bash
    python scripts/llm_schema_extraction.py
    ```
 
 4. Insert the processed resumes into the database:
+
    ```bash
    python scripts/populate_database.py
    ```
 
-Or simply run the entire pipeline with a single command:
+## Function Calling for Structured Output
 
-```bash
-./scripts/run_resume_extraction_pipeline.sh
+The system uses OpenAI's function calling feature to ensure reliable structured output from GPT-4o. This approach:
+
+1. Defines a function schema that matches our Pydantic models
+2. Instructs GPT-4o to extract information according to this schema
+3. Returns structured JSON that can be directly validated against our models
+4. Ensures consistent output format for database storage
+
+Example function definition:
+
+```python
+functions = [
+    {
+        "name": "extract_resume_data",
+        "description": "Extract structured information from a resume text",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "candidate_name": {"type": "string"},
+                "contact_info": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string"},
+                        # Additional properties...
+                    }
+                },
+                # Additional properties...
+            },
+            "required": ["document_type", "candidate_name", "contact_info"]
+        }
+    }
+]
 ```
-
-This workflow allows you to process collections of resumes efficiently and store them in a structured format for querying.
 
 ## Contributing
 

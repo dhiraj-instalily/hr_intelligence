@@ -10,6 +10,7 @@ This document provides instructions for using the HR Intelligence system to extr
 4. Proper schema validation ensures data consistency
 5. Identifying candidate names from tables improves extraction accuracy
 6. Using LLMs for schema extraction provides better results than regex patterns
+7. OpenAI's GPT-4o with function calling provides reliable structured data extraction
 
 ## Important File Paths
 - PDF Parser: `/src/ingestion/pdf_parser.py`
@@ -44,21 +45,22 @@ The improved extraction process:
 - Captures all text until the next candidate name
 - Includes the raw text in the output JSON for LLM processing
 
-### 3. Process Resumes with LLM
+### 3. Process Resumes with GPT-4o
 ```bash
 python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes"
 ```
-This uses an LLM to extract structured information from the resume text according to the schema:
+This uses GPT-4o to extract structured information from the resume text according to the schema:
 - Reads each extracted resume JSON file
-- Sends the raw resume text to an LLM with a prompt to extract structured information
-- Validates the LLM's output against the schema
+- Sends the raw resume text to GPT-4o with a prompt to extract structured information
+- Uses OpenAI's function calling feature for reliable structured output
+- Validates the GPT-4o's output against the schema
 - Saves the processed resume to `data/llm_processed_resumes/[Candidate_Name].json`
 
 ### 4. Populate the Database
 ```bash
 python scripts/populate_database.py --resumes-dir "data/llm_processed_resumes" --config "config/config.yaml"
 ```
-This inserts the LLM-processed resumes into the database defined in the config.
+This inserts the GPT-4o-processed resumes into the database defined in the config.
 
 ### 5. Run the Complete Pipeline
 ```bash
@@ -67,7 +69,12 @@ This inserts the LLM-processed resumes into the database defined in the config.
 This script runs the entire pipeline from PDF parsing to database population in a single command.
 
 ## API Key Setup
-Set your LlamaCloud API key in the `.env` file:
+Set your OpenAI API key in the `.env` file:
+```
+OPENAI_API_KEY=sk-your-api-key
+```
+
+For PDF parsing, set your LlamaCloud API key:
 ```
 LLAMA_CLOUD_API_KEY=llx-your-api-key
 ```
@@ -76,5 +83,50 @@ LLAMA_CLOUD_API_KEY=llx-your-api-key
 1. Improve database integration and validation
 2. Develop the query interface for natural language queries
 3. Add more test cases and improve error handling
-4. Enhance the LLM prompts for even better extraction
+4. Enhance the GPT-4o prompts for even better extraction
 5. Implement batch processing for multiple PDFs
+6. Verify individual resume extraction by creating a name-to-raw-text mapping
+7. Update GPT-4o implementation to use structured output instead of function calling
+
+## Verification of Resume Extraction
+
+To verify that individual resumes are extracted properly, we need to create a mapping from candidate names to their raw text. This will help us confirm that:
+1. All candidates are correctly identified from the tables
+2. The resume text is properly extracted for each candidate
+3. The boundaries between resumes are correctly identified
+
+### Implementation Steps:
+```bash
+python scripts/verify_resume_extraction.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-file "data/verification/name_to_text_map.json"
+```
+
+This script will:
+- Extract candidate names from tables as in the current implementation
+- Create a JSON mapping of `{"candidate_name": "raw_text"}`
+- Save this mapping to a file for manual verification
+
+## GPT-4o Structured Output Implementation
+
+The current implementation uses OpenAI's function calling for structured output. However, OpenAI now recommends using the structured output feature directly as described in https://platform.openai.com/docs/guides/structured-outputs.
+
+### Implementation Changes:
+1. Update `scripts/llm_schema_extraction.py` to use structured output instead of function calling:
+```python
+# Replace function calling implementation with:
+response = client.chat.completions.create(
+    model="gpt-4o",
+    temperature=0.2,
+    messages=[
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": f"Extract structured information from this resume:\n\n{resume_text}"}
+    ],
+    response_format={"type": "json_object"}
+)
+
+# Extract the structured response
+extracted_data = json.loads(response.choices[0].message.content)
+```
+
+2. Ensure the system message includes the schema definition to guide the model's output structure.
+
+These changes will improve the reliability and maintainability of the extraction process while following OpenAI's latest best practices.
