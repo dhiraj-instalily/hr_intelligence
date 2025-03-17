@@ -8,7 +8,7 @@ import sys
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -17,6 +17,41 @@ from src.utils.logger import get_logger
 from src.retrieval.schema import Resume, ContactInfo, Education, WorkExperience
 
 logger = get_logger(__name__)
+
+def extract_candidate_names_from_table(text: str) -> List[Tuple[str, str]]:
+    """
+    Extract candidate names and emails from the tables at the beginning of the document.
+
+    Args:
+        text: The full text content of the document
+
+    Returns:
+        List of tuples containing (candidate_name, email)
+    """
+    # Find tables with candidate information
+    table_pattern = r'\|Name\|Email Address\|.*?\|(.*?)(?=\n\n# )'
+    tables = re.findall(table_pattern, text, re.DOTALL)
+
+    candidates = []
+
+    for table in tables:
+        # Extract rows from the table
+        rows = table.strip().split('\n')
+        for row in rows:
+            # Skip separator rows and empty rows
+            if '---' in row or not row.strip():
+                continue
+
+            # Extract name and email from the row
+            parts = row.split('|')
+            if len(parts) >= 3:  # Ensure we have at least name and email
+                name = parts[1].strip()
+                email = parts[2].strip()
+                if name and email and '@' in email:
+                    candidates.append((name, email))
+
+    logger.info(f"Extracted {len(candidates)} candidate names from tables")
+    return candidates
 
 def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]]:
     """
@@ -37,33 +72,67 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
     with open(text_file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Split the content into individual resumes
-    # Pattern: Look for a line that starts with a # followed by a name (no other # characters in the line)
-    # This assumes each resume starts with the candidate's name as a heading
-    resume_pattern = r'(?=# [A-Za-z]+ [A-Za-z]+\n(?:[^#]|#[^#])*)'
-    resumes_text = re.split(resume_pattern, content)
+    # Extract candidate names and emails from the tables at the beginning
+    candidates = extract_candidate_names_from_table(content)
 
-    # Filter out the initial part (job description and applicant list)
-    resumes_text = [text for text in resumes_text if re.search(r'# [A-Za-z]+ [A-Za-z]+\n', text)]
+    if not candidates:
+        logger.warning("No candidates found in the tables. Falling back to regex pattern matching.")
+        # Fallback to the old method if no candidates are found in tables
+        name_pattern = r'# ([A-Za-z]+ [A-Za-z]+)\n'
+        names = re.findall(name_pattern, content)
+        # Filter out non-candidate names (like section headers)
+        candidates = [(name, "") for name in names if len(name.split()) == 2]
 
-    logger.info(f"Found {len(resumes_text)} potential resumes in the text file")
+    # Create a map to store resume content for each candidate
+    resume_map = {}
+
+    # Find the start of each resume by looking for the candidate's name as a heading
+    for i, (candidate_name, email) in enumerate(candidates):
+        # Escape special characters in the name for regex
+        escaped_name = re.escape(candidate_name)
+
+        # Find the start of this candidate's resume
+        resume_start_pattern = rf'# {escaped_name}\n'
+        start_match = re.search(resume_start_pattern, content)
+
+        if not start_match:
+            logger.warning(f"Could not find resume start for {candidate_name}, skipping")
+            continue
+
+        start_pos = start_match.start()
+
+        # Find the start of the next candidate's resume (if any)
+        end_pos = len(content)
+        if i < len(candidates) - 1:
+            next_candidate, _ = candidates[i + 1]
+            escaped_next_name = re.escape(next_candidate)
+            next_start_pattern = rf'# {escaped_next_name}\n'
+            next_start_match = re.search(next_start_pattern, content)
+            if next_start_match:
+                end_pos = next_start_match.start()
+
+        # Extract the resume content
+        resume_text = content[start_pos:end_pos].strip()
+
+        # Store in the map
+        resume_map[candidate_name] = {
+            "text": resume_text,
+            "email": email
+        }
+
+    logger.info(f"Extracted {len(resume_map)} resumes from the text file")
 
     # Process each resume
     extracted_resumes = []
 
-    for i, resume_text in enumerate(resumes_text):
+    for candidate_name, resume_data in resume_map.items():
         try:
-            # Extract candidate name
-            name_match = re.search(r'# ([A-Za-z]+ [A-Za-z]+)', resume_text)
-            if not name_match:
-                logger.warning(f"Could not extract name from resume {i+1}, skipping")
-                continue
+            resume_text = resume_data["text"]
+            email = resume_data["email"] or extract_email(resume_text)
 
-            candidate_name = name_match.group(1)
             logger.info(f"Processing resume for {candidate_name}")
 
             # Extract contact information
-            email = extract_email(resume_text)
             phone = extract_phone(resume_text)
             linkedin = extract_linkedin(resume_text)
 
@@ -97,12 +166,15 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
                 "work_experience": work_experience_list,
                 "skills": skills,
                 "certifications": certifications,
-                "summary": summary
+                "summary": summary,
+                "raw_text": resume_text  # Include the raw text for LLM processing
             }
 
             # Validate against schema
             try:
-                Resume(**resume_data)
+                # Create a copy without the raw_text field for validation
+                validation_data = {k: v for k, v in resume_data.items() if k != "raw_text"}
+                Resume(**validation_data)
                 logger.info(f"Resume for {candidate_name} validated successfully")
             except Exception as e:
                 logger.warning(f"Resume for {candidate_name} failed validation: {e}")
@@ -117,7 +189,7 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
             extracted_resumes.append(resume_data)
 
         except Exception as e:
-            logger.error(f"Error processing resume {i+1}: {e}")
+            logger.error(f"Error processing resume for {candidate_name}: {e}")
 
     logger.info(f"Successfully extracted {len(extracted_resumes)} resumes")
     return extracted_resumes
@@ -298,33 +370,18 @@ def extract_summary(text: str) -> Optional[str]:
     return None
 
 def main():
-    """Main entry point for the script."""
+    """Main function to run the script."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Extract individual resumes from a processed text file")
-
-    parser.add_argument(
-        "--input-file",
-        type=str,
-        default="data/processed_text/Sales Engineer AI Growth.txt",
-        help="Path to the processed text file"
-    )
-
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="data/extracted_resumes",
-        help="Directory to save individual resume JSON files"
-    )
+    parser = argparse.ArgumentParser(description="Extract individual resumes from a processed text file.")
+    parser.add_argument("--input-file", type=str, default="data/processed_text/Sales Engineer AI Growth.txt",
+                        help="Path to the processed text file")
+    parser.add_argument("--output-dir", type=str, default="data/extracted_resumes",
+                        help="Directory to save individual resume JSON files")
 
     args = parser.parse_args()
 
-    # Extract resumes
-    extracted_resumes = extract_resumes(args.input_file, args.output_dir)
-
-    print(f"Successfully extracted {len(extracted_resumes)} resumes to {args.output_dir}")
-
-    return 0
+    extract_resumes(args.input_file, args.output_dir)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

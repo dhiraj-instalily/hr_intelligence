@@ -26,10 +26,12 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - ✅ Basic data extraction and JSON output implemented
 - ✅ GitHub repository established at [https://github.com/dhiraj-instalily/hr_intelligence](https://github.com/dhiraj-instalily/hr_intelligence)
 - ✅ Added scripts to extract individual resumes from a single PDF and populate the database
+- ✅ Improved resume extraction by identifying candidates from tables
+- ✅ Implemented LLM-based schema extraction for more accurate resume parsing
+- ✅ Created an end-to-end pipeline script for the entire extraction process
 
 ### Next Steps
 
-- [ ] Complete the data extraction pipeline with LLM-based schema extraction
 - [ ] Implement database storage for extracted data
 - [ ] Develop the query interface for natural language queries
 - [ ] Add more test cases and improve error handling
@@ -83,9 +85,30 @@ pip install -r requirements.txt
 echo "LLAMA_CLOUD_API_KEY=your-api-key-here" >> .env
 ```
 
-### 3. Parse a PDF
+### 3. Run the Complete Pipeline
 
-You can use the standalone parsing script to process a PDF:
+You can run the entire extraction and processing pipeline with a single script:
+
+```bash
+# Make the script executable
+chmod +x scripts/run_resume_extraction_pipeline.sh
+
+# Run the pipeline
+./scripts/run_resume_extraction_pipeline.sh
+```
+
+This script will:
+
+1. Parse the PDF (if not already done)
+2. Extract individual resumes
+3. Process resumes with LLM for accurate schema extraction
+4. Populate the database (if the script exists)
+
+### 4. Run Individual Steps
+
+Alternatively, you can run each step individually:
+
+#### Parse a PDF
 
 ```bash
 # Place your PDF in the raw_pdfs directory
@@ -96,37 +119,22 @@ cp your-document.pdf data/raw_pdfs/
 python parse_pdf.py
 ```
 
-Or modify the script to process your specific PDF:
-
-```python
-# Edit parse_pdf.py to point to your PDF
-pdf_path = "data/raw_pdfs/your-document.pdf"
-output_text_path = "data/processed_text/your-document.txt"
-output_json_path = "data/json_data/your-document.json"
-```
-
-### 4. Batch Process Multiple PDFs
-
-To process multiple PDFs at once:
-
-```bash
-python scripts/batch_ingest.py --input-dir data/raw_pdfs --output-dir data/processed_text --json-dir data/json_data
-```
-
-### 5. Extract Individual Resumes
-
-If your PDF contains multiple resumes (like the sample "Sales Engineer AI Growth.pdf"), you can extract them into individual structured JSON files:
+#### Extract Individual Resumes
 
 ```bash
 python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes
 ```
 
-### 6. Populate the Database
-
-After extracting individual resumes, you can insert them into the database:
+#### Process Resumes with LLM
 
 ```bash
-python scripts/populate_database.py --resumes-dir data/extracted_resumes --config config/config.yaml
+python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes
+```
+
+#### Populate the Database
+
+```bash
+python scripts/populate_database.py --resumes-dir data/llm_processed_resumes --config config/config.yaml
 ```
 
 ## Project Structure
@@ -143,8 +151,9 @@ hr_intelligence/
 ├── data/                    # Data storage
 │   ├── raw_pdfs/            # Original PDF files
 │   ├── processed_text/      # Extracted text from PDFs
-│   ├── json_data/           # LLM-processed JSON files (schema-compliant)
-│   └── extracted_resumes/   # Individual resume JSON files
+│   ├── json_data/           # JSON files from initial parsing
+│   ├── extracted_resumes/   # Individual resume JSON files
+│   └── llm_processed_resumes/ # LLM-processed resume JSON files
 │
 ├── src/
 │   ├── ingestion/           # Data processing pipeline
@@ -165,7 +174,9 @@ hr_intelligence/
 ├── scripts/                 # Utility scripts
 │   ├── batch_ingest.py      # Bulk PDF processing
 │   ├── extract_resumes.py   # Extract individual resumes from processed text
+│   ├── llm_schema_extraction.py # LLM-based schema extraction
 │   ├── populate_database.py # Insert extracted resumes into database
+│   ├── run_resume_extraction_pipeline.sh # End-to-end pipeline script
 │   └── db_cleanup.py        # Database maintenance
 │
 ├── tests/                   # Unit and integration tests
@@ -216,7 +227,7 @@ python scripts/batch_ingest.py --input-dir data/raw_pdfs --output-dir data/proce
 
 ### Handling Multi-Resume PDFs
 
-If you have a PDF containing multiple resumes (like a collection of job applicants), you can use the provided scripts to:
+Our improved workflow for processing collections of resumes:
 
 1. Parse the PDF using LlamaParse:
 
@@ -224,16 +235,28 @@ If you have a PDF containing multiple resumes (like a collection of job applican
    python parse_pdf.py
    ```
 
-2. Extract individual resumes into structured JSON files:
+2. Extract individual resumes by identifying candidates from tables:
 
    ```bash
    python scripts/extract_resumes.py
    ```
 
-3. Insert the extracted resumes into the database:
+3. Process resumes with LLM for accurate schema extraction:
+
+   ```bash
+   python scripts/llm_schema_extraction.py
+   ```
+
+4. Insert the processed resumes into the database:
    ```bash
    python scripts/populate_database.py
    ```
+
+Or simply run the entire pipeline with a single command:
+
+```bash
+./scripts/run_resume_extraction_pipeline.sh
+```
 
 This workflow allows you to process collections of resumes efficiently and store them in a structured format for querying.
 

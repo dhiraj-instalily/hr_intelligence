@@ -6,13 +6,17 @@ This document provides instructions for using the HR Intelligence system to extr
 ## Key Learnings
 1. LlamaParse provides superior PDF parsing capabilities, especially for tables and complex layouts
 2. A single PDF can contain multiple resumes that need to be separated for proper processing
-3. Regex-based extraction has limitations; LLM-based extraction would be more accurate
+3. Regex-based extraction has limitations; LLM-based extraction is more accurate
 4. Proper schema validation ensures data consistency
+5. Identifying candidate names from tables improves extraction accuracy
+6. Using LLMs for schema extraction provides better results than regex patterns
 
 ## Important File Paths
 - PDF Parser: `/src/ingestion/pdf_parser.py`
 - Standalone Parser: `/parse_pdf.py`
 - Resume Extraction: `/scripts/extract_resumes.py`
+- LLM Schema Extraction: `/scripts/llm_schema_extraction.py`
+- Pipeline Script: `/scripts/run_resume_extraction_pipeline.sh`
 - Database Population: `/scripts/populate_database.py`
 - Schema Definitions: `/src/retrieval/schema.py`
 - Configuration: `/config/config.yaml`
@@ -29,28 +33,38 @@ This parses the PDF at `data/raw_pdfs/Sales Engineer AI Growth.pdf` and outputs:
 
 ### 2. Extract Individual Resumes
 ```bash
-python scripts/extract_resumes.py
+python scripts/extract_resumes.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-dir "data/extracted_resumes"
 ```
 This extracts individual resumes from the processed text and saves them to:
 - `data/extracted_resumes/[Candidate_Name].json`
 
-Current limitations:
-- Section headers are sometimes identified as candidate names
-- Regex patterns need refinement for better extraction
-- Validation against schema needs improvement
+The improved extraction process:
+- Identifies candidate names from tables at the beginning of the document
+- Extracts each resume by finding the candidate's name as a heading
+- Captures all text until the next candidate name
+- Includes the raw text in the output JSON for LLM processing
 
-### 3. Populate the Database
+### 3. Process Resumes with LLM
 ```bash
-python scripts/populate_database.py
+python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes"
 ```
-This inserts the extracted resumes into the database defined in the config.
+This uses an LLM to extract structured information from the resume text according to the schema:
+- Reads each extracted resume JSON file
+- Sends the raw resume text to an LLM with a prompt to extract structured information
+- Validates the LLM's output against the schema
+- Saves the processed resume to `data/llm_processed_resumes/[Candidate_Name].json`
 
-## Improvement Opportunities
-1. Use the applicant table at the beginning of the document to identify valid candidate names
-2. Implement LLM-based extraction for more accurate results
-3. Improve regex patterns for better section identification
-4. Add more robust validation against the schema
-5. Implement a more structured approach to parsing based on document hierarchy
+### 4. Populate the Database
+```bash
+python scripts/populate_database.py --resumes-dir "data/llm_processed_resumes" --config "config/config.yaml"
+```
+This inserts the LLM-processed resumes into the database defined in the config.
+
+### 5. Run the Complete Pipeline
+```bash
+./scripts/run_resume_extraction_pipeline.sh
+```
+This script runs the entire pipeline from PDF parsing to database population in a single command.
 
 ## API Key Setup
 Set your LlamaCloud API key in the `.env` file:
@@ -59,8 +73,8 @@ LLAMA_CLOUD_API_KEY=llx-your-api-key
 ```
 
 ## Next Steps
-1. Refine the extraction script to better identify candidate names
-2. Implement LLM-based extraction for complex fields
-3. Improve database integration and validation
-4. Develop the query interface for natural language queries
-5. Add more test cases and improve error handling
+1. Improve database integration and validation
+2. Develop the query interface for natural language queries
+3. Add more test cases and improve error handling
+4. Enhance the LLM prompts for even better extraction
+5. Implement batch processing for multiple PDFs
