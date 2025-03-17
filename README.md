@@ -33,6 +33,8 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - ✅ Integrated OpenAI's function calling for reliable structured data extraction
 - ✅ Fixed resume extraction to capture complete resume text for each candidate
 - ✅ Added preview mode to LLM schema extraction for debugging
+- ✅ Added ability to process specific resume files for targeted debugging
+- ✅ Improved handling of applicant tables and special cases in resume extraction
 
 ### Next Steps
 
@@ -43,6 +45,76 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [x] Verify individual resume extraction with name-to-text mapping
 - [ ] Update GPT-4o implementation to use structured output instead of function calling
 - [x] Fix resume extraction issues with non-candidate names and name variations
+
+## Debugging Tools
+
+The HR Intelligence system includes several debugging tools to help ensure the quality of extracted data:
+
+### Debug Flag for Resume Extraction
+
+The `--debug` flag with `extract_resumes.py` provides detailed output to verify extraction quality:
+
+```bash
+python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes --clean --debug
+```
+
+This flag:
+
+- Prints the first 10 lines of each extracted resume
+- Shows which candidates were successfully extracted
+- Helps identify any candidates that couldn't be found
+- Verifies that complete resume text is being captured
+
+### Preview Flag for LLM Schema Extraction
+
+The `--preview` flag with `llm_schema_extraction.py` allows you to check what's being sent to the LLM before making API calls:
+
+```bash
+python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes --preview --max-previews 2
+```
+
+This flag:
+
+- Shows what would be sent to the LLM without making actual API calls
+- Displays both the system message (with schema) and user message (with resume text)
+- Helps verify the quality of the text being sent to the LLM
+- Use `--max-previews` to control how many previews are shown
+
+### Processing Specific Resume Files
+
+If you need to process a specific resume file (e.g., after fixing extraction issues):
+
+```bash
+python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes --specific-file "Candidate_Name.json"
+```
+
+This option:
+
+- Processes only the specified file instead of all files in the directory
+- Useful for fixing individual problematic resumes
+- Saves time and API calls when debugging specific issues
+
+### Troubleshooting Common Issues
+
+If you encounter issues with the extraction or processing:
+
+1. **Missing or Incorrect Resume Content**:
+
+   - Check the extracted resume in `data/extracted_resumes/Candidate_Name.json`
+   - Look at the `raw_text` field to see what was extracted
+   - If needed, manually create or fix the JSON file
+   - Use the `--specific-file` flag to process just that candidate's resume
+
+2. **Applicant Table Issues**:
+
+   - The extraction script has been improved to handle cases where a candidate's information appears in an applicant table
+   - Add name variations to the `name_variations` dictionary in `extract_resumes.py` if needed
+
+3. **LLM Processing Issues**:
+   - Use the `--preview` flag to check what's being sent to the LLM
+   - Verify that the raw text contains the complete resume information
+
+For more detailed debugging instructions, see the `instruction.txt` file.
 
 ## LlamaParse Integration
 

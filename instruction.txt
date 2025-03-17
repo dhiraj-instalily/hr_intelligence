@@ -1,188 +1,68 @@
-# HR Intelligence - Instructions
+# HR Intelligence Debugging Instructions
 
-## Overview
-This document provides instructions for using the HR Intelligence system to extract, process, and query HR documents using LLMs.
+## Resume Extraction Debugging
 
-## Key Learnings
-1. LlamaParse provides superior PDF parsing capabilities, especially for tables and complex layouts
-2. A single PDF can contain multiple resumes that need to be separated for proper processing
-3. Regex-based extraction has limitations; LLM-based extraction is more accurate
-4. Proper schema validation ensures data consistency
-5. Identifying candidate names from tables improves extraction accuracy
-6. Using LLMs for schema extraction provides better results than regex patterns
-7. OpenAI's GPT-4o with function calling provides reliable structured data extraction
-8. Robust resume extraction requires handling of name variations and section boundaries
-9. Debugging tools like preview mode are essential for LLM-based extraction pipelines
+When running the resume extraction pipeline, use the following debugging flags to ensure quality:
 
-## Important File Paths
-- PDF Parser: `/src/ingestion/pdf_parser.py`
-- Standalone Parser: `/parse_pdf.py`
-- Resume Extraction: `/scripts/extract_resumes.py`
-- LLM Schema Extraction: `/scripts/llm_schema_extraction.py`
-- Pipeline Script: `/scripts/run_resume_extraction_pipeline.sh`
-- Database Population: `/scripts/populate_database.py`
-- Schema Definitions: `/src/retrieval/schema.py`
-- Configuration: `/config/config.yaml`
+### 1. Extract Resumes with Debug Flag
 
-## Workflow for Processing Multi-Resume PDFs
-
-### 1. Parse the PDF
-```bash
-python parse_pdf.py
-```
-This parses the PDF at `data/raw_pdfs/Sales Engineer AI Growth.pdf` and outputs:
-- Text: `data/processed_text/Sales Engineer AI Growth.txt`
-- JSON: `data/json_data/Sales Engineer AI Growth.json`
-
-### 2. Extract Individual Resumes
-```bash
-python scripts/extract_resumes.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-dir "data/extracted_resumes" --clean --debug
-```
-This extracts individual resumes from the processed text and saves them to:
-- `data/extracted_resumes/[Candidate_Name].json`
-
-The improved extraction process:
-- Identifies candidate names from tables at the beginning of the document
-- Extracts each resume by finding the candidate's name as a heading
-- Captures all text until the next candidate name
-- Includes the raw text in the output JSON for LLM processing
-- Uses a more robust algorithm to identify resume boundaries
-- Handles name variations and special cases
-- Provides debug output to verify extraction quality
-
-### 3. Process Resumes with GPT-4o
-```bash
-# Preview mode (doesn't call the API, just shows what would be sent)
-python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes" --preview --max-previews 2
-
-# Full processing
-python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes"
-```
-This uses GPT-4o to extract structured information from the resume text according to the schema:
-- Reads each extracted resume JSON file
-- Sends the raw resume text to GPT-4o with a prompt to extract structured information
-- Uses OpenAI's structured output feature for reliable JSON responses
-- Validates the GPT-4o's output against the schema
-- Saves the processed resume to `data/llm_processed_resumes/[Candidate_Name].json`
-- Provides a preview mode for debugging without making API calls
-
-### 4. Populate the Database
-```bash
-python scripts/populate_database.py --resumes-dir "data/llm_processed_resumes" --config "config/config.yaml"
-```
-This inserts the GPT-4o-processed resumes into the database defined in the config.
-
-### 5. Run the Complete Pipeline
-```bash
-./scripts/run_resume_extraction_pipeline.sh
-```
-This script runs the entire pipeline from PDF parsing to database population in a single command.
-
-## API Key Setup
-Set your OpenAI API key in the `.env` file:
-```
-OPENAI_API_KEY=sk-your-api-key
-```
-
-For PDF parsing, set your LlamaCloud API key:
-```
-LLAMA_CLOUD_API_KEY=llx-your-api-key
-```
-
-## Next Steps
-1. Improve database integration and validation
-2. Develop the query interface for natural language queries
-3. Add more test cases and improve error handling
-4. Enhance the GPT-4o prompts for even better extraction
-5. Implement batch processing for multiple PDFs
-6. Verify individual resume extraction by creating a name-to-raw-text mapping
-7. Update GPT-4o implementation to use structured output instead of function calling
-
-## Verification of Resume Extraction
-
-To verify that individual resumes are extracted properly, we need to create a mapping from candidate names to their raw text. This will help us confirm that:
-1. All candidates are correctly identified from the tables
-2. The resume text is properly extracted for each candidate
-3. The boundaries between resumes are correctly identified
-
-### Implementation Steps:
-```bash
-python scripts/verify_resume_extraction.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-file "data/verification/name_to_text_map.json"
-```
-
-This script will:
-- Extract candidate names from tables as in the current implementation
-- Create a JSON mapping of `{"candidate_name": "raw_text"}`
-- Save this mapping to a file for manual verification
-
-### Recent Improvements:
-1. Enhanced resume extraction to capture the full text between candidate headings
-2. Added debug output to verify extraction quality
-3. Improved heading pattern matching to handle different formatting styles
-4. Added support for candidates with name variations (e.g., "Nimeesh Bagwe" vs "NIMEESH NILESH BAGWE")
-5. Implemented special case handling for hard-to-find candidates
-6. Added email-based search for candidates whose names can't be found in headings
-7. Added preview mode to LLM schema extraction for debugging
-
-### Known Issues:
-1. Some candidates with name variations may still be missed if not explicitly defined in the name_variations dictionary
-2. The extraction process relies on consistent heading patterns in the document
-
-## Debugging Resume Extraction
-
-If you encounter issues with resume extraction, you can use the following debugging tools:
-
-1. Use the `--debug` flag with extract_resumes.py to see the first 10 lines of each extracted resume:
 ```bash
 python scripts/extract_resumes.py --input-file "data/processed_text/Sales Engineer AI Growth.txt" --output-dir "data/extracted_resumes" --clean --debug
 ```
 
-2. Use the `--preview` flag with llm_schema_extraction.py to see what would be sent to the LLM without making API calls:
+The `--debug` flag will:
+- Print the first 10 lines of each extracted resume
+- Help verify that complete resume text is being captured
+- Show which candidates were successfully extracted
+- Identify any candidates that couldn't be found
+
+### 2. LLM Schema Extraction with Preview Flag
+
 ```bash
 python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes" --preview --max-previews 2
 ```
 
-3. Examine the extracted JSON files in `data/extracted_resumes/` to verify the raw_text field contains the complete resume text.
+The `--preview` flag will:
+- Show what would be sent to the LLM without making API calls
+- Display both the system message (with schema) and user message (with resume text)
+- Help verify the quality of the text being sent to the LLM
+- Use `--max-previews` to control how many previews are shown
 
-## GPT-4o Structured Output Implementation
+### 3. Process a Specific Resume File
 
-The current implementation uses OpenAI's structured output feature for reliable JSON responses. The key components are:
+If you need to process a specific resume file (e.g., after fixing extraction issues):
 
-1. System message with schema definition:
-```python
-system_message = f"""
-You are an expert resume parser. Extract structured information from the resume text according to the provided schema.
-
-Schema:
-```json
-{json.dumps(schema_dict, indent=2)}
+```bash
+python scripts/llm_schema_extraction.py --input-dir "data/extracted_resumes" --output-dir "data/llm_processed_resumes" --specific-file "Candidate_Name.json"
 ```
 
-Follow these guidelines:
-1. Extract all relevant information that fits the schema
-2. If information is not present in the resume, use null or empty lists as appropriate
-3. Be precise and accurate in your extraction
-4. For education and work experience, extract dates in the format provided in the resume
-5. For responsibilities, extract complete bullet points as separate items in the list
-6. Your response must be a valid JSON object that conforms to the schema
-7. The JSON object must include the following required fields: document_type, candidate_name, contact_info, education, work_experience, skills
-"""
-```
+## Troubleshooting Common Issues
 
-2. API call with structured output format:
-```python
-response = client.chat.completions.create(
-    model="gpt-4o",
-    temperature=0.2,
-    messages=[
-        {"role": "system", "content": system_message},
-        {"role": "user", "content": f"Extract structured information from this resume:\n\n{resume_text}"}
-    ],
-    response_format={"type": "json_object"}
-)
+### Missing or Incorrect Resume Content
 
-# Extract the structured response
-extracted_data = json.loads(response.choices[0].message.content)
-```
+If a candidate's resume is missing or contains incorrect information:
 
-This approach ensures reliable and consistent structured output from the LLM.
+1. Check the extracted resume in `data/extracted_resumes/Candidate_Name.json`
+2. Look at the `raw_text` field to see what was extracted
+3. If the content is incorrect, you may need to manually create or fix the JSON file
+4. Use the `--specific-file` flag to process just that candidate's resume
+
+### Applicant Table Issues
+
+The extraction script has been improved to handle cases where a candidate's information appears in an applicant table rather than a proper resume section. If you still encounter issues:
+
+1. Use the `--debug` flag to see what's being extracted
+2. Check if the candidate's name appears in a different format in the document
+3. Add name variations to the `name_variations` dictionary in `extract_resumes.py`
+4. For severe cases, manually create the JSON file with the correct information
+
+### LLM Processing Issues
+
+If the LLM produces incorrect or incomplete information:
+
+1. Use the `--preview` flag to check what's being sent to the LLM
+2. Verify that the raw text contains the complete resume information
+3. If needed, manually edit the extracted resume JSON file to include better raw text
+4. Process the specific file using the `--specific-file` flag
+
+These debugging tools will help ensure that complete resume text is being captured and properly processed by the LLM.

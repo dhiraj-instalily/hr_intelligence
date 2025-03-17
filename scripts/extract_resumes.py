@@ -9,6 +9,8 @@ Improvements:
 - Implemented special case handling for hard-to-find candidates
 - Added email-based search for candidates whose names can't be found in headings
 - Improved heading pattern matching to handle different formatting styles
+- FIXED: Improved resume extraction to capture the full text between candidate headings
+- FIXED: Added debug output to verify extraction quality
 """
 
 import os
@@ -62,13 +64,14 @@ def extract_candidate_names_from_table(text: str) -> List[Tuple[str, str]]:
     logger.info(f"Extracted {len(candidates)} candidate names from tables")
     return candidates
 
-def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]]:
+def extract_resumes(text_file_path: str, output_dir: str, debug: bool = False) -> List[Dict[str, Any]]:
     """
     Extract individual resumes from a processed text file.
 
     Args:
         text_file_path: Path to the processed text file
         output_dir: Directory to save individual resume JSON files
+        debug: Whether to print debug information
 
     Returns:
         List of extracted resume data dictionaries
@@ -116,9 +119,19 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
         "Cherry Tao": ["CHERRY TAO", "Cherry Y. Tao", "CHERRY Y TAO", "Cherry", "Tao"]
     }
 
-    # Find the start of each resume by looking for the candidate's name as a heading
+    # Create a list of all candidate names and their variations for better matching
+    all_candidate_variations = []
+    for candidate_name, _ in candidates:
+        all_candidate_variations.append(candidate_name)
+        if candidate_name in name_variations:
+            all_candidate_variations.extend(name_variations[candidate_name])
+
+    # Find all headings in the document
+    heading_matches = list(re.finditer(r'# ([^\n]+)', content))
+
+    # Extract resume sections based on headings
     for i, (candidate_name, email) in enumerate(candidates):
-        # Try to find the resume with the exact name
+        # Try to find the resume with the exact name or variations
         resume_found = False
 
         # List of possible name variations to try
@@ -128,95 +141,130 @@ def extract_resumes(text_file_path: str, output_dir: str) -> List[Dict[str, Any]
         if candidate_name in name_variations:
             names_to_try.extend(name_variations[candidate_name])
 
-        # Define special patterns for hard-to-find candidates
-        special_patterns = []
-        if candidate_name in ["Aidan O'Donnell", "Sai Sandeep Sandeep", "Cherry Tao"]:
-            # Try to find any heading that contains part of the name
-            name_parts = candidate_name.split()
-            for part in name_parts:
-                if len(part) > 2 and part not in ["the", "and", "for"]:  # Only use parts that are meaningful
-                    part_pattern = rf'# [^\n]*{part}[^\n]*\n'
-                    special_patterns.append(part_pattern)
-
         # Try each name variation
         for name_variation in names_to_try:
-            # Escape special characters in the name for regex
-            escaped_name = re.escape(name_variation)
-
-            # Try different heading patterns
-            heading_patterns = [
-                rf'# {escaped_name}\n',  # Standard heading
-                rf'# {escaped_name.upper()}\n',  # Uppercase heading
-                rf'# {escaped_name.title()}\n',   # Title case heading
-                rf'#{escaped_name}\n',   # No space after #
-                rf'#{escaped_name.upper()}\n',   # No space after # with uppercase
-                rf'#{escaped_name.title()}\n'   # No space after # with title case
-            ]
-
-            # Try each heading pattern
-            for pattern in heading_patterns + special_patterns:
-                start_match = re.search(pattern, content)
-                if start_match:
-                    start_pos = start_match.start()
-
-                    # Find the start of the next candidate's resume (if any)
-                    end_pos = len(content)
-
-                    # Try to find the next heading
-                    next_heading_match = re.search(r'# [A-Z]', content[start_pos + len(pattern):])
-                    if next_heading_match:
-                        end_pos = start_pos + len(pattern) + next_heading_match.start()
-
-                    # Extract the resume content
-                    resume_text = content[start_pos:end_pos].strip()
-
-                    # Store in the map
-                    resume_map[candidate_name] = {
-                        "text": resume_text,
-                        "email": email
-                    }
-
-                    resume_found = True
+            # Find the heading that matches this candidate
+            candidate_heading_index = None
+            for j, match in enumerate(heading_matches):
+                heading_text = match.group(1)
+                # Check if the heading contains the candidate name (case insensitive)
+                if name_variation.lower() in heading_text.lower():
+                    candidate_heading_index = j
                     break
 
-            if resume_found:
+            if candidate_heading_index is not None:
+                # Found the candidate's heading
+                start_pos = heading_matches[candidate_heading_index].start()
+
+                # Find the next candidate heading
+                next_candidate_index = None
+                for j in range(candidate_heading_index + 1, len(heading_matches)):
+                    heading_text = heading_matches[j].group(1)
+                    # Check if this heading is for another candidate
+                    is_candidate_heading = False
+                    for other_name in all_candidate_variations:
+                        if other_name.lower() in heading_text.lower():
+                            is_candidate_heading = True
+                            break
+
+                    # Skip headings that are clearly section headers
+                    if heading_text in ["EDUCATION", "EXPERIENCE", "SKILLS", "PROJECTS", "WORK EXPERIENCE",
+                                       "TECHNICAL SKILLS", "PROFESSIONAL EXPERIENCE"]:
+                        continue
+
+                    if is_candidate_heading:
+                        next_candidate_index = j
+                        break
+
+                # If we found the next candidate, use their heading as the end point
+                if next_candidate_index is not None:
+                    end_pos = heading_matches[next_candidate_index].start()
+                else:
+                    # If this is the last candidate, go to the end of the document
+                    end_pos = len(content)
+
+                # Extract the resume content
+                resume_text = content[start_pos:end_pos].strip()
+
+                # Store in the map
+                resume_map[candidate_name] = {
+                    "text": resume_text,
+                    "email": email
+                }
+
+                resume_found = True
                 break
 
-        # Special case for Cherry Tao - if we still can't find her resume
-        if not resume_found and candidate_name == "Cherry Tao":
-            # Try to find her resume by looking for her email in the content
-            email_pattern = r'cytao2@illinois\.edu'
-            email_match = re.search(email_pattern, content)
+        # Special case for candidates we couldn't find
+        if not resume_found:
+            # Try to find by email
+            if email:
+                email_pattern = re.escape(email)
+                email_match = re.search(email_pattern, content)
 
-            if email_match:
-                # Find the nearest heading before this email
-                heading_pos = content[:email_match.start()].rfind("# ")
-                if heading_pos != -1:
-                    start_pos = heading_pos
+                if email_match:
+                    # Find the nearest heading before this email
+                    heading_pos = content[:email_match.start()].rfind("# ")
+                    if heading_pos != -1:
+                        start_pos = heading_pos
 
-                    # Find the next heading after this position
-                    next_heading_pos = content[email_match.end():].find("# ")
-                    if next_heading_pos != -1:
-                        end_pos = email_match.end() + next_heading_pos
-                    else:
+                        # Find the next candidate heading after this position
                         end_pos = len(content)
+                        for other_name, _ in candidates:
+                            if other_name != candidate_name:
+                                other_pattern = f"# {re.escape(other_name)}"
+                                other_match = re.search(other_pattern, content[email_match.end():])
+                                if other_match:
+                                    end_pos = email_match.end() + other_match.start()
+                                    break
 
-                    # Extract the resume content
-                    resume_text = content[start_pos:end_pos].strip()
+                            # Extract the resume content
+                            resume_text = content[start_pos:end_pos].strip()
 
-                    # Store in the map
-                    resume_map[candidate_name] = {
-                        "text": resume_text,
-                        "email": email
-                    }
+                            # IMPROVED: Check if the extracted text is just the applicant table
+                            # If it contains "Job applicants as of" and doesn't have enough content, try to find the actual resume
+                            if "Job applicants as of" in resume_text and len(resume_text.split('\n')) < 30:
+                                # Search for the candidate's actual resume section
+                                # Look for a section that starts with the candidate's name as a heading
+                                candidate_section_pattern = f"# {re.escape(candidate_name)}\n"
+                                candidate_section_match = re.search(candidate_section_pattern, content)
 
-                    resume_found = True
-                    logger.info(f"Found Cherry Tao's resume using email search")
+                                if candidate_section_match:
+                                    start_pos = candidate_section_match.start()
+
+                                    # Find the next heading after this position
+                                    next_heading_match = re.search(r'\n# ', content[start_pos + len(candidate_section_pattern):])
+                                    if next_heading_match:
+                                        end_pos = start_pos + len(candidate_section_pattern) + next_heading_match.start()
+                                    else:
+                                        end_pos = len(content)
+
+                                    # Extract the actual resume content
+                                    resume_text = content[start_pos:end_pos].strip()
+                                    logger.info(f"Found better resume content for {candidate_name} using name-based search")
+
+                            # Store in the map
+                            resume_map[candidate_name] = {
+                                "text": resume_text,
+                                "email": email
+                            }
+
+                            resume_found = True
+                            logger.info(f"Found {candidate_name}'s resume using email search")
 
         if not resume_found:
             logger.warning(f"Could not find resume start for {candidate_name}, skipping")
 
     logger.info(f"Extracted {len(resume_map)} resumes from the text file")
+
+    # Debug: Print the first few lines of each extracted resume
+    if debug:
+        logger.info("=== DEBUG: First 10 lines of each extracted resume ===")
+        for candidate_name, resume_data in resume_map.items():
+            resume_text = resume_data["text"]
+            preview_lines = resume_text.split('\n')[:10]
+            preview = '\n'.join(preview_lines)
+            logger.info(f"--- {candidate_name} ---\n{preview}\n...")
 
     # Process each resume
     extracted_resumes = []
@@ -473,6 +521,7 @@ def main():
     parser.add_argument('--input-file', required=True, help='Path to the processed text file')
     parser.add_argument('--output-dir', required=True, help='Directory to save individual resume JSON files')
     parser.add_argument('--clean', action='store_true', help='Clean the output directory before extraction')
+    parser.add_argument('--debug', action='store_true', help='Print debug information')
     args = parser.parse_args()
 
     # Clean the output directory if requested
@@ -486,7 +535,7 @@ def main():
             logger.info(f"Output directory cleaned")
 
     # Extract resumes
-    extract_resumes(args.input_file, args.output_dir)
+    extract_resumes(args.input_file, args.output_dir, args.debug)
 
 if __name__ == "__main__":
     main()
