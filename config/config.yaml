@@ -3,7 +3,7 @@
 
 # Database configuration
 database:
-  type: sqlite  # or postgresql, mysql, etc.
+  type: sqlite # or postgresql, mysql, etc.
   path: "../data/hr_database.db"
 
 # LLM configuration
@@ -14,6 +14,14 @@ llm:
 
 # PDF processing
 pdf:
+  # LlamaParse configuration
+  llama_cloud_api_key: "" # Set in environment variable LLAMA_CLOUD_API_KEY
+  result_type: "markdown" # "markdown" or "text"
+  num_workers: 4
+  language: "en"
+  verbose: true
+
+  # Legacy OCR settings (kept for compatibility)
   ocr_enabled: true
   min_confidence: 0.8
 

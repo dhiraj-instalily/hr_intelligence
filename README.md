@@ -8,12 +8,37 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 
 ## Features
 
-- **PDF Processing**: Extract text from PDF documents, including OCR for scanned documents
+- **Advanced PDF Processing**: Extract text and tables from PDF documents using LlamaParse, with superior table extraction capabilities
 - **LLM-based Extraction**: Use large language models to extract structured data from text
 - **Schema Validation**: Validate extracted data against predefined schemas
 - **Database Storage**: Store extracted data in a structured database
 - **Natural Language Queries**: Query the database using natural language
 - **Caching**: Cache query results for improved performance
+
+## LlamaParse Integration
+
+This project uses [LlamaParse](https://docs.llamaindex.ai/en/v0.10.34/module_guides/loading/connector/llama_parse/) for advanced PDF parsing. LlamaParse is a proprietary parsing service designed to handle the complexities of PDFs and other document types, with industry-leading table extraction capabilities.
+
+### LlamaParse Features
+
+- **Superior Table Extraction**: Extracts tables from PDFs with high accuracy
+- **Markdown Output**: Converts PDFs to well-structured markdown format
+- **Batch Processing**: Efficiently processes multiple documents
+- **Asynchronous API**: Supports both synchronous and asynchronous processing
+
+### LlamaParse Setup
+
+To use LlamaParse, you need to:
+
+1. Get an API key from [LlamaCloud](https://cloud.llamaindex.ai)
+2. Set the API key in your environment variables:
+   ```
+   export LLAMA_CLOUD_API_KEY="llx-your-api-key"
+   ```
+   Or add it to your `.env` file:
+   ```
+   LLAMA_CLOUD_API_KEY=llx-your-api-key
+   ```
 
 ## Project Structure
 
@@ -33,7 +58,7 @@ hr_intelligence/
 │
 ├── src/
 │   ├── ingestion/           # Data processing pipeline
-│   │   ├── pdf_parser.py    # PDF → text conversion
+│   │   ├── pdf_parser.py    # PDF → text conversion using LlamaParse
 │   │   ├── data_extractor.py# LLM-based schema extraction
 │   │   └── database_handler.py  # DB population
 │   │
@@ -63,18 +88,21 @@ hr_intelligence/
 ## Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/yourusername/hr_intelligence.git
    cd hr_intelligence
    ```
 
 2. Create a virtual environment:
+
    ```
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. Install dependencies:
+
    ```
    pip install -r requirements.txt
    ```
