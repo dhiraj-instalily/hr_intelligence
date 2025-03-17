@@ -38,13 +38,70 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 
 ### Next Steps
 
-- [ ] Implement database storage for extracted data
+- [x] Implement database storage for extracted data
 - [ ] Develop the query interface for natural language queries
 - [ ] Add more test cases and improve error handling
 - [ ] Enhance documentation and add usage examples
 - [x] Verify individual resume extraction with name-to-text mapping
 - [x] Update GPT-4o implementation to use structured output instead of function calling
 - [x] Fix resume extraction issues with non-candidate names and name variations
+- [x] Fix database ingestion issues with schema validation and data formatting
+
+## Database Module
+
+The HR Intelligence system now includes a powerful hybrid database module for storing and searching resume data. This module combines:
+
+1. **DuckDB** - A lightweight, embedded SQL database for structured data storage
+2. **ChromaDB** - A vector database for semantic search capabilities
+
+This hybrid approach allows for both precise structured queries and fuzzy/semantic searches, providing a powerful and flexible search experience.
+
+### Database Features
+
+- **Structured Data Storage**: Store resume data in a structured format with JSON columns
+- **Semantic Search**: Find resumes based on semantic meaning using vector embeddings
+- **Fuzzy Search**: Match company names, roles, and other fields with fuzzy matching
+- **Hybrid Scoring**: Combine results from different search methods with weighted scoring
+- **Rich Metadata**: Store and query detailed resume information
+- **Schema Validation**: Validate data against predefined schemas before storage
+- **Error Handling**: Robust error handling for data format issues
+
+### Using the Database
+
+For detailed instructions on setting up and using the database, see the [DATABASE.md](DATABASE.md) file.
+
+Quick start:
+
+```bash
+# Set up the database
+./scripts/setup_database.sh
+
+# Populate the database with resume data
+python scripts/populate_hybrid_db.py --resumes-dir data/llm_processed_resumes
+
+# Search for resumes
+python scripts/search_resumes.py --query "web development experience with React"
+```
+
+### Database Ingestion Troubleshooting
+
+If you encounter issues with database ingestion:
+
+1. **Schema Validation Errors**:
+
+   - The system now handles missing ID fields in WorkExperience and Education models
+   - Certifications are automatically converted to empty lists if None
+   - Date fields are set to None to avoid parsing issues
+
+2. **Data Format Issues**:
+
+   - The system handles various date formats by setting them to None during ingestion
+   - Skills are assigned unique IDs during insertion
+
+3. **Collection Creation Issues**:
+   - ChromaDB collection creation is now properly handled with appropriate error catching
+
+For more detailed information on database troubleshooting, see the `instruction.txt` file.
 
 ## Debugging Tools
 
