@@ -43,7 +43,7 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - [ ] Add more test cases and improve error handling
 - [ ] Enhance documentation and add usage examples
 - [x] Verify individual resume extraction with name-to-text mapping
-- [ ] Update GPT-4o implementation to use structured output instead of function calling
+- [x] Update GPT-4o implementation to use structured output instead of function calling
 - [x] Fix resume extraction issues with non-candidate names and name variations
 
 ## Debugging Tools
