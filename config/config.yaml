@@ -1,0 +1,23 @@
+# Main configuration file
+# Database paths, model names, and other settings
+
+# Database configuration
+database:
+  type: sqlite  # or postgresql, mysql, etc.
+  path: "../data/hr_database.db"
+
+# LLM configuration
+llm:
+  model_name: "gpt-4"
+  temperature: 0.1
+  max_tokens: 1000
+
+# PDF processing
+pdf:
+  ocr_enabled: true
+  min_confidence: 0.8
+
+# Extraction settings
+extraction:
+  schema_version: "1.0"
+  cache_results: true
