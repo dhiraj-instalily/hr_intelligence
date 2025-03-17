@@ -31,6 +31,8 @@ HR Intelligence is a tool that helps HR professionals and recruiters extract str
 - ✅ Implemented GPT-4o-based schema extraction for more accurate resume parsing
 - ✅ Created an end-to-end pipeline script for the entire extraction process
 - ✅ Integrated OpenAI's function calling for reliable structured data extraction
+- ✅ Fixed resume extraction to capture complete resume text for each candidate
+- ✅ Added preview mode to LLM schema extraction for debugging
 
 ### Next Steps
 
@@ -153,10 +155,11 @@ python parse_pdf.py
 #### Extract Individual Resumes
 
 ```bash
-python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes --clean
+python scripts/extract_resumes.py --input-file data/processed_text/Sales\ Engineer\ AI\ Growth.txt --output-dir data/extracted_resumes --clean --debug
 ```
 
 The `--clean` flag will remove all existing JSON files in the output directory before extraction, ensuring clean results.
+The `--debug` flag will print the first 10 lines of each extracted resume to verify extraction quality.
 
 #### Verify Resume Extraction
 
@@ -175,6 +178,8 @@ This creates a mapping from candidate names to their raw resume text, which can 
 - ✅ Implemented special case handling for hard-to-find candidates
 - ✅ Added email-based search for candidates whose names can't be found in headings
 - ✅ Improved heading pattern matching to handle different formatting styles
+- ✅ Enhanced resume extraction to capture the full text between candidate headings
+- ✅ Added debug output to verify extraction quality
 
 **Known Issues:**
 
@@ -184,8 +189,14 @@ This creates a mapping from candidate names to their raw resume text, which can 
 #### Process Resumes with GPT-4o
 
 ```bash
+# Preview mode (doesn't call the API, just shows what would be sent)
+python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes --preview --max-previews 2
+
+# Full processing
 python scripts/llm_schema_extraction.py --input-dir data/extracted_resumes --output-dir data/llm_processed_resumes
 ```
+
+The `--preview` flag allows you to see what would be sent to the LLM without making actual API calls, which is useful for debugging.
 
 #### Populate the Database
 
