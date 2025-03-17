@@ -98,7 +98,19 @@ def extract_resumes(text_file_path: str, output_dir: str, debug: bool = False) -
         section_headers = ["PROFESSIONAL EXPERIENCE", "WORK EXPERIENCE", "EDUCATION", "SKILLS",
                           "CERTIFICATIONS", "COMMUNITY INVOLVEMENT", "EXTRACURRICULAR ACTIVITIES",
                           "SPECIALIZED SKILLS", "KEY SKILLS", "SPECIAL MENTIONS", "PROJECT EXPERIENCE",
-                          "LEADERSHIP EXPERIENCE", "TECHNICAL SKILLS", "PROFESSIONAL SUMMARY"]
+                          "LEADERSHIP EXPERIENCE", "TECHNICAL SKILLS", "PROFESSIONAL SUMMARY",
+                          # Add more section headers and educational institutions
+                          "SYRACUSE UNIVERSITY", "EARLHAM COLLEGE", "UNIVERSITY", "COLLEGE",
+                          "SCHOLASTIC ACHIEVEMENTS", "ACHIEVEMENTS", "AWARDS", "HONORS",
+                          "PUBLICATIONS", "RESEARCH", "LANGUAGES", "INTERESTS", "HOBBIES",
+                          "VOLUNTEER EXPERIENCE", "REFERENCES", "ADDITIONAL INFORMATION",
+                          "PROFESSIONAL DEVELOPMENT", "TRAINING", "WORKSHOPS", "CONFERENCES",
+                          "PROJECTS", "ACADEMIC PROJECTS", "PERSONAL PROJECTS", "COURSEWORK",
+                          "RELEVANT COURSEWORK", "ACTIVITIES", "PROFESSIONAL AFFILIATIONS",
+                          "AFFILIATIONS", "MEMBERSHIPS", "PROFESSIONAL MEMBERSHIPS",
+                          "PROFESSIONAL ASSOCIATIONS", "ASSOCIATIONS", "ORGANIZATIONS",
+                          "PROFESSIONAL ORGANIZATIONS", "PROFESSIONAL ACTIVITIES",
+                          "PROFESSIONAL CERTIFICATIONS", "LICENSES", "PROFESSIONAL LICENSES"]
 
         candidates = [(name, "") for name in names if name not in section_headers]
 
